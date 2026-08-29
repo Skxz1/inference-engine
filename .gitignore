@@ -1,0 +1,6 @@
+build/
+*.gguf
+.venv/
+__pycache__/
+*.npy
+.DS_Store
