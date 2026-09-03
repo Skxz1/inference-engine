@@ -40,7 +40,7 @@ MappedFile map_file(const std::string& path) {
     void* mapped = mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
     if (mapped == MAP_FAILED){
-        throw std::runtime_error("Failed to mmap file: + path");
+        throw std::runtime_error("Failed to mmap file: " + path);
     }
     
     // close the file descriptor (safe to do right after mmap, the mapping stays valid)
@@ -48,4 +48,30 @@ MappedFile map_file(const std::string& path) {
     
     // return a MappedFile with the pointer and size
     return MappedFile{mapped, static_cast<size_t>(file_size)};
+}
+
+void inspect_header(const MappedFile& mapped) {
+    char* bytes = reinterpret_cast<char*>(mapped.data);
+    
+    uint32_t magic;
+    std::memcpy(&magic, bytes, 4);
+    
+    // next: check magic, then read version, tensor_count, metadata_kv_count
+    if (magic != 0x46554747){
+        throw std::runtime_error("Invalid Magic Number! Failed");
+    }
+
+    uint32_t version;
+    std::memcpy(&version, bytes + 4, 4);
+
+    if (version < 3){
+        throw std::runtime_error("Version Number is unsupported! Failed");
+    }
+
+    uint64_t tensor_count;
+    std::memcpy(&tensor_count, bytes + 8, 8);
+
+    uint64_t metadata_kv_count;
+    std::memcpy(&metadata_kv_count, bytes + 16, 8);
+
 }
