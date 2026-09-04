@@ -80,3 +80,31 @@ void inspect_header(const MappedFile& mapped) {
     std::cout << "Metadata KV count: " << metadata_kv_count << std::endl;
 
 }
+
+
+struct GgufString {
+    std::string value;
+    uint64_t bytes_consumed;
+};
+
+GgufString read_gguf_string(const char* bytes) {
+    // read an 8-byte length from bytes
+    uint64_t length;
+    std::memcpy(&length, bytes, 8);     // length holds copy of the first 8 bytes from location bytes
+    
+    // build a std::string from the next `length` bytes, starting after the 8-byte prefix
+    std::string value(bytes + 8, length);
+    
+    // return a GgufString with the string and total bytes consumed (8 + length)
+    return GgufString{value, 8 + length};
+}
+
+void inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
+    char* bytes = reinterpret_cast<char*>(mapped.data);
+    size_t pos = 24;  // metadata starts right after the 24-byte fixed header
+    
+    // read just the first entry's key, for now
+    GgufString key = read_gguf_string(bytes + pos);
+    
+    std::cout << "First metadata key: " << key.value << std::endl;
+}
