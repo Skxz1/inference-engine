@@ -101,10 +101,21 @@ GgufString read_gguf_string(const char* bytes) {
 
 void inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     char* bytes = reinterpret_cast<char*>(mapped.data);
-    size_t pos = 24;  // metadata starts right after the 24-byte fixed header
+    size_t pos = 24;
     
-    // read just the first entry's key, for now
     GgufString key = read_gguf_string(bytes + pos);
-    
     std::cout << "First metadata key: " << key.value << std::endl;
+    
+    pos += key.bytes_consumed;
+    
+    uint32_t value_type;
+    std::memcpy(&value_type, bytes + pos, 4);
+    std::cout << "Value type: " << value_type << std::endl;
+    
+    pos += 4;  // advance past the type tag we just read
+
+    if (value_type == 8) {
+        GgufString value = read_gguf_string(bytes + pos);
+        std::cout << "Value: " << value.value << std::endl;
+    }
 }
