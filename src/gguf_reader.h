@@ -113,9 +113,27 @@ void inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     std::cout << "Value type: " << value_type << std::endl;
     
     pos += 4;  // advance past the type tag we just read
+    std::string value_str;
+    
 
     if (value_type == 8) {
         GgufString value = read_gguf_string(bytes + pos);
-        std::cout << "Value: " << value.value << std::endl;
+        value_str = value.value;
+        pos += value.bytes_consumed;
+    } else if (value_type == 4) {
+        uint32_t num;
+        std::memcpy(&num, bytes + pos, 4);
+        value_str = std::to_string(num);
+        pos += 4;
+    }else if (value_type == 6){
+        float num;
+        std::memcpy(&num, bytes + pos, 4);
+        value_str = std::to_string(num);
+        pos += 4;
+
+    } else {
+        throw std::runtime_error("Unhandled metadata value type: " + std::to_string(value_type));
     }
+
+    std::cout << "Value: " << value_str << std::endl;
 }
