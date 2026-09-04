@@ -74,4 +74,9 @@ void inspect_header(const MappedFile& mapped) {
     uint64_t metadata_kv_count;
     std::memcpy(&metadata_kv_count, bytes + 16, 8);
 
+    std::cout << "Magic: 0x" << std::hex << magic << std::dec << std::endl;
+    std::cout << "Version: " << version << std::endl;
+    std::cout << "Tensor count: " << tensor_count << std::endl;
+    std::cout << "Metadata KV count: " << metadata_kv_count << std::endl;
+
 }
