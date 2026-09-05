@@ -180,4 +180,29 @@ void inspect_tensors(const MappedFile& mapped, uint64_t tensor_count, size_t sta
 
     std::cout << "Tensor Name: " << name.value << std::endl;
     std::cout << "Number of Tensor Dimension: " << n_dimensions << std::endl; 
+
+    std::vector<uint64_t> dimensions;
+    for (uint32_t i = 0; i < n_dimensions; i ++){
+        uint64_t dim;
+        std::memcpy(&dim, bytes + pos, 8);
+        dimensions.push_back(dim);
+        pos += 8;
+    }
+    std::cout << "Dimensions: ";
+    for (uint64_t d : dimensions){
+        std::cout << d << " ";
+    }
+    std::cout << std::endl;
+
+    uint32_t type;
+    std::memcpy(&type, bytes + pos, 4);
+    pos += 4;
+
+    uint64_t offset;
+    std::memcpy(&offset, bytes + pos, 8);
+    pos += 8;
+
+    std::cout << "dimension type: " << type << std::endl; 
+    std::cout << "Dimension Offset: " << offset << std::endl; 
+
 }
