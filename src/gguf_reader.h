@@ -166,3 +166,18 @@ size_t inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     }
     return pos;
 }
+
+void inspect_tensors(const MappedFile& mapped, uint64_t tensor_count, size_t start_pos){
+    char * bytes = reinterpret_cast<char*>(mapped.data);
+    size_t pos = start_pos;
+
+    GgufString name = read_gguf_string(bytes + pos);
+    pos += name.bytes_consumed;
+
+    uint32_t n_dimensions;
+    std::memcpy(&n_dimensions, bytes + pos, 4);
+    pos += 4;
+
+    std::cout << "Tensor Name: " << name.value << std::endl;
+    std::cout << "Number of Tensor Dimension: " << n_dimensions << std::endl; 
+}

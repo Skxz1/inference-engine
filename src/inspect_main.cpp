@@ -6,6 +6,7 @@ int main(){
 
     inspect_header(result);
     size_t metadata_end = inspect_metadata(result, 23);
+    inspect_tensors(result, 201, metadata_end);
 
     return 0;
 }
