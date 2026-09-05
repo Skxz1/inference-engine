@@ -102,38 +102,66 @@ GgufString read_gguf_string(const char* bytes) {
 void inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     char* bytes = reinterpret_cast<char*>(mapped.data);
     size_t pos = 24;
-    
-    GgufString key = read_gguf_string(bytes + pos);
-    std::cout << "First metadata key: " << key.value << std::endl;
-    
-    pos += key.bytes_consumed;
-    
-    uint32_t value_type;
-    std::memcpy(&value_type, bytes + pos, 4);
-    std::cout << "Value type: " << value_type << std::endl;
-    
-    pos += 4;  // advance past the type tag we just read
-    std::string value_str;
-    
 
-    if (value_type == 8) {
-        GgufString value = read_gguf_string(bytes + pos);
-        value_str = value.value;
-        pos += value.bytes_consumed;
-    } else if (value_type == 4) {
-        uint32_t num;
-        std::memcpy(&num, bytes + pos, 4);
-        value_str = std::to_string(num);
-        pos += 4;
-    }else if (value_type == 6){
-        float num;
-        std::memcpy(&num, bytes + pos, 4);
-        value_str = std::to_string(num);
-        pos += 4;
+    for (uint64_t i = 0; i < metadata_kv_count; i++){
+        
+        GgufString key = read_gguf_string(bytes + pos);
+        std::cout << "First metadata key: " << key.value << std::endl;
+        
+        pos += key.bytes_consumed;
+        
+        uint32_t value_type;
+        std::memcpy(&value_type, bytes + pos, 4);
+        std::cout << "Value type: " << value_type << std::endl;
+        
+        pos += 4;  // advance past the type tag we just read
+        std::string value_str;
+        
 
-    } else {
-        throw std::runtime_error("Unhandled metadata value type: " + std::to_string(value_type));
+        if (value_type == 8) {
+            GgufString value = read_gguf_string(bytes + pos);
+            value_str = value.value;
+            pos += value.bytes_consumed;
+        } else if (value_type == 4) {
+            uint32_t num;
+            std::memcpy(&num, bytes + pos, 4);
+            value_str = std::to_string(num);
+            pos += 4;
+        }else if (value_type == 6){
+            float num;
+            std::memcpy(&num, bytes + pos, 4);
+            value_str = std::to_string(num);
+            pos += 4;
+
+        } else if (value_type == 9){
+            uint32_t element_type;
+            std::memcpy(&element_type, bytes + pos, 4);
+            pos += 4;
+
+            uint64_t array_len;
+            std::memcpy(&array_len, bytes + pos, 8);
+            pos += 8;
+
+            value_str = "Array of " + std::to_string(array_len) + "Elements, type " + std::to_string(element_type);
+
+            // Actual loop through and skip past all array_len elements
+            if (element_type == 8){
+                for (uint64_t j = 0; j < array_len; j++){
+                    GgufString element = read_gguf_string(bytes + pos);
+                    pos += element.bytes_consumed;
+                }
+            }
+            else if (element_type == 4 || element_type == 6 || element_type == 5){
+                pos += 4 * array_len;
+            }
+            else {
+                throw std::runtime_error("Unhandled array element type: " + std::to_string(element_type));
+            }
+
+        }else {
+            throw std::runtime_error("Unhandled metadata value type: " + std::to_string(value_type));
+        }
+
+        std::cout << "Value: " << value_str << std::endl;
     }
-
-    std::cout << "Value: " << value_str << std::endl;
 }
