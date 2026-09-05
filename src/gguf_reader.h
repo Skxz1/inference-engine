@@ -99,7 +99,7 @@ GgufString read_gguf_string(const char* bytes) {
     return GgufString{value, 8 + length};
 }
 
-void inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
+size_t inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     char* bytes = reinterpret_cast<char*>(mapped.data);
     size_t pos = 24;
 
@@ -164,4 +164,5 @@ void inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
 
         std::cout << "Value: " << value_str << std::endl;
     }
+    return pos;
 }
