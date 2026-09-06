@@ -11,6 +11,15 @@ int main(){
     size_t alignment = 32;
     size_t tensor_data_start = ((tensor_index_end + alignment - 1) / alignment) * alignment;
 
+    uint64_t output_norm_offset = 1169063936;
+    std::vector<float> output_norm_weights = read_tensor_data(result, tensor_data_start + output_norm_offset, 0, 2048);
+
+    std::cout << "First 5 values of output_norm.weight: ";
+    for (int i = 0; i < 5; i++) {
+        std::cout << output_norm_weights[i] << " ";
+    }
+    std::cout << std::endl;
+
     std::cout << "Tensor data starts at: " << tensor_data_start << std::endl;
 
     return 0;
