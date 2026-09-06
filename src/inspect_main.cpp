@@ -6,7 +6,12 @@ int main(){
 
     inspect_header(result);
     size_t metadata_end = inspect_metadata(result, 23);
-    inspect_tensors(result, 201, metadata_end);
+    size_t tensor_index_end = inspect_tensors(result, 201, metadata_end);
+
+    size_t alignment = 32;
+    size_t tensor_data_start = ((tensor_index_end + alignment - 1) / alignment) * alignment;
+
+    std::cout << "Tensor data starts at: " << tensor_data_start << std::endl;
 
     return 0;
 }

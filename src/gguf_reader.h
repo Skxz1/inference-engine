@@ -167,42 +167,57 @@ size_t inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     return pos;
 }
 
-void inspect_tensors(const MappedFile& mapped, uint64_t tensor_count, size_t start_pos){
+size_t inspect_tensors(const MappedFile& mapped, uint64_t tensor_count, size_t start_pos){
     char * bytes = reinterpret_cast<char*>(mapped.data);
     size_t pos = start_pos;
 
-    GgufString name = read_gguf_string(bytes + pos);
-    pos += name.bytes_consumed;
+    for (uint64_t i = 0; i < tensor_count; i++){
 
-    uint32_t n_dimensions;
-    std::memcpy(&n_dimensions, bytes + pos, 4);
-    pos += 4;
+        GgufString name = read_gguf_string(bytes + pos);
+        pos += name.bytes_consumed;
 
-    std::cout << "Tensor Name: " << name.value << std::endl;
-    std::cout << "Number of Tensor Dimension: " << n_dimensions << std::endl; 
+        uint32_t n_dimensions;
+        std::memcpy(&n_dimensions, bytes + pos, 4);
+        pos += 4;
 
-    std::vector<uint64_t> dimensions;
-    for (uint32_t i = 0; i < n_dimensions; i ++){
-        uint64_t dim;
-        std::memcpy(&dim, bytes + pos, 8);
-        dimensions.push_back(dim);
+        std::cout << "Tensor Name: " << name.value << std::endl;
+        std::cout << "Number of Tensor Dimension: " << n_dimensions << std::endl; 
+
+        std::vector<uint64_t> dimensions;
+        for (uint32_t j = 0; j < n_dimensions; j ++){
+            uint64_t dim;
+            std::memcpy(&dim, bytes + pos, 8);
+            dimensions.push_back(dim);
+            pos += 8;
+        }
+        std::cout << "Dimensions: ";
+        for (uint64_t d : dimensions){
+            std::cout << d << " ";
+        }
+        std::cout << std::endl;
+
+        uint32_t type;
+        std::memcpy(&type, bytes + pos, 4);
+        pos += 4;
+
+        uint64_t offset;
+        std::memcpy(&offset, bytes + pos, 8);
         pos += 8;
+
+        std::cout << "dimension type: " << type << std::endl; 
+        std::cout << "Dimension Offset: " << offset << std::endl; 
     }
-    std::cout << "Dimensions: ";
-    for (uint64_t d : dimensions){
-        std::cout << d << " ";
+    return pos;
+}
+
+std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, uint32_t type, uint64_t num_elements){
+    if (type == 0){
+        char* bytes = reinterpret_cast<char*>(mapped.data);
+        std::vector<float> result(num_elements);
+        std::memcpy(result.data(), bytes + offset, num_elements * sizeof(float));
+        return result;
+    } else{
+        throw std::runtime_error("Unhandled Tensor Type: " + std::to_string(type));
     }
-    std::cout << std::endl;
-
-    uint32_t type;
-    std::memcpy(&type, bytes + pos, 4);
-    pos += 4;
-
-    uint64_t offset;
-    std::memcpy(&offset, bytes + pos, 8);
-    pos += 8;
-
-    std::cout << "dimension type: " << type << std::endl; 
-    std::cout << "Dimension Offset: " << offset << std::endl; 
 
 }
