@@ -28,5 +28,15 @@ int main(){
     float test2 = f16_to_f32(0x4000);
     std::cout << "F16 0x4000 should be 2.0, got: " << test2 << std::endl;
 
+    uint64_t attn_k_offset = 1159036928;
+    uint64_t attn_k_elements = 2048 * 256;
+    std::vector<float> attn_k_weights = read_tensor_data(result, tensor_data_start + attn_k_offset, 8, attn_k_elements);
+
+    std::cout << "First 5 values of blk.9.attn_k.weight: ";
+    for (int i = 0; i < 5; i++) {
+        std::cout << attn_k_weights[i] << " ";
+    }
+    std::cout << std::endl;
+
     return 0;
 }
