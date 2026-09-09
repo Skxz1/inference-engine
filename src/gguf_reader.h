@@ -253,6 +253,30 @@ std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, u
         }
         return result;
     }
+    else if (type == 8){
+        char* bytes = reinterpret_cast<char*>(mapped.data);
+        std::vector<float> result;
+        uint64_t num_blocks = num_elements / 32;
+        size_t pos = offset;
+
+        for (uint64_t i = 0; i < num_blocks; i++){
+            uint16_t raw_scale;
+            std::memcpy(&raw_scale, bytes + pos, 2);
+            float scale = f16_to_f32(raw_scale);
+            pos += 2;
+
+            // next: read 32 int8 values, multiply by scale, push_back
+            for(uint64_t j = 0; j < 32; j++){
+                int8_t quantized;
+                std::memcpy(&quantized, bytes + pos, 1);
+                float weight = quantized * scale;
+                result.push_back(weight);
+                pos += 1;
+
+            }
+        }
+        return result;
+    }
     else{
         throw std::runtime_error("Unhandled Tensor Type: " + std::to_string(type));
     }
