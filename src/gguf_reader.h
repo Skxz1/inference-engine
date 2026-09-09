@@ -210,18 +210,6 @@ size_t inspect_tensors(const MappedFile& mapped, uint64_t tensor_count, size_t s
     return pos;
 }
 
-std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, uint32_t type, uint64_t num_elements){
-    if (type == 0){
-        char* bytes = reinterpret_cast<char*>(mapped.data);
-        std::vector<float> result(num_elements);
-        std::memcpy(result.data(), bytes + offset, num_elements * sizeof(float));
-        return result;
-    } else{
-        throw std::runtime_error("Unhandled Tensor Type: " + std::to_string(type));
-    }
-
-}
-
 // c++ does not support f16 so we convert to f32
 float f16_to_f32(uint16_t raw){
     // Extract the pieces from the 16 bit container
@@ -246,4 +234,27 @@ float f16_to_f32(uint16_t raw){
     float result;
     std::memcpy(&result, &bits, sizeof(float));
     return result;
+}
+
+std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, uint32_t type, uint64_t num_elements){
+    if (type == 0){
+        char* bytes = reinterpret_cast<char*>(mapped.data);
+        std::vector<float> result(num_elements);
+        std::memcpy(result.data(), bytes + offset, num_elements * sizeof(float));
+        return result;
+    } 
+    else if(type == 1){
+        char* bytes = reinterpret_cast<char*>(mapped.data);
+        std::vector<float> result(num_elements);
+        for(uint64_t i = 0; i < num_elements; i ++){
+            uint16_t raw;
+            std::memcpy(&raw, bytes + offset + i * 2, 2);
+            result[i] = f16_to_f32(raw);
+        }
+        return result;
+    }
+    else{
+        throw std::runtime_error("Unhandled Tensor Type: " + std::to_string(type));
+    }
+
 }
