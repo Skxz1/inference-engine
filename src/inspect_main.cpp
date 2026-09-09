@@ -1,8 +1,13 @@
 #include "gguf_reader.h"
 
-int main(){
+int main(int argc, char* argv[]){
 
-    MappedFile result = map_file("models/tinyllama-1.1b-chat-v1.0.Q8_0.gguf");
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <path-to-gguf>" << std::endl;
+        return 1;
+    }
+
+    MappedFile result = map_file(argv[1]);
 
     inspect_header(result);
     size_t metadata_end = inspect_metadata(result, 23);
