@@ -221,3 +221,29 @@ std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, u
     }
 
 }
+
+// c++ does not support f16 so we convert to f32
+float f16_to_f32(uint16_t raw){
+    // Extract the pieces from the 16 bit container
+    uint32_t sign = (raw & 0x8000);
+    uint32_t exponent = (raw & 0x7C00);
+    uint32_t mantissa = (raw & 0x03FF);
+
+    // Step 1: copy and shift the sign bit to pos 31
+    uint32_t f32_sign = sign << 16;
+
+    // Step 2: adjust exponent do bias calculation e.g. add 112
+    // shift to position 23
+    uint32_t true_exponent = exponent >> 10;
+    uint32_t f32_exponent = (true_exponent + 112) << 23;
+
+    // Step 3: Pad mantissa by shifting it left 13 spaces:
+    uint32_t f32_mantissa = mantissa << 13;
+
+    // Combine all bits together
+    uint32_t bits = f32_sign | f32_exponent | f32_mantissa;
+
+    float result;
+    std::memcpy(&result, &bits, sizeof(float));
+    return result;
+}

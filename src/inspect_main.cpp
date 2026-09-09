@@ -22,5 +22,11 @@ int main(){
 
     std::cout << "Tensor data starts at: " << tensor_data_start << std::endl;
 
+    float test = f16_to_f32(0x3C00);
+    std::cout << "F16 0x3C00 should be 1.0, got: " << test << std::endl;
+
+    float test2 = f16_to_f32(0x4000);
+    std::cout << "F16 0x4000 should be 2.0, got: " << test2 << std::endl;
+
     return 0;
 }
