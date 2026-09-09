@@ -10,7 +10,10 @@ int main(int argc, char* argv[]){
     MappedFile result = map_file(argv[1]);
 
     inspect_header(result);
-    size_t metadata_end = inspect_metadata(result, 23);
+    MetadataResult metadata_result = inspect_metadata(result, 23);
+    size_t metadata_end = metadata_result.end_pos;
+    ModelConfig config = metadata_result.config;
+
     size_t tensor_index_end = inspect_tensors(result, 201, metadata_end);
 
     size_t alignment = 32;
@@ -42,6 +45,13 @@ int main(int argc, char* argv[]){
         std::cout << attn_k_weights[i] << " ";
     }
     std::cout << std::endl;
+
+    std::cout << std::endl << "=== Model Config ===" << std::endl;
+    std::cout << "n_layers: " << config.n_layers << std::endl;
+    std::cout << "n_heads: " << config.n_heads << std::endl;
+    std::cout << "d_model: " << config.d_model << std::endl;
+    std::cout << "vocab_size: " << config.vocab_size << std::endl;
+    std::cout << "rope_theta: " << config.rope_theta << std::endl;
 
     return 0;
 }

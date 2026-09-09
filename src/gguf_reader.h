@@ -22,6 +22,19 @@ struct MappedFile {
     size_t size;
 };
 
+struct ModelConfig {
+    uint32_t n_layers = 0;
+    uint32_t n_heads = 0;
+    uint32_t d_model = 0;
+    uint32_t vocab_size = 0;
+    float rope_theta = 0.0f;
+};
+
+struct MetadataResult {
+    size_t end_pos;
+    ModelConfig config;
+};
+
 MappedFile map_file(const std::string& path) {
     // open the file (O_RDONLY), throw if it fails
     int fd = open(path.c_str(), O_RDONLY);
@@ -99,9 +112,10 @@ GgufString read_gguf_string(const char* bytes) {
     return GgufString{value, 8 + length};
 }
 
-size_t inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
+MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     char* bytes = reinterpret_cast<char*>(mapped.data);
     size_t pos = 24;
+    ModelConfig config;
 
     for (uint64_t i = 0; i < metadata_kv_count; i++){
         
@@ -127,11 +141,23 @@ size_t inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
             std::memcpy(&num, bytes + pos, 4);
             value_str = std::to_string(num);
             pos += 4;
+
+            if (key.value == "llama.block_count"){
+                config.n_layers = num;
+            } else if(key.value == "llama.attention.head_count"){
+                config.n_heads = num;
+            } else if(key.value == "llama.embedding_length"){
+                config.d_model = num;
+            }
         }else if (value_type == 6){
             float num;
             std::memcpy(&num, bytes + pos, 4);
             value_str = std::to_string(num);
             pos += 4;
+
+            if (key.value == "llama.rope.freq_base"){
+                config.rope_theta = num;
+            }
 
         } else if (value_type == 9){
             uint32_t element_type;
@@ -141,6 +167,10 @@ size_t inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
             uint64_t array_len;
             std::memcpy(&array_len, bytes + pos, 8);
             pos += 8;
+
+            if (key.value == "tokenizer.ggml.tokens"){
+                config.vocab_size = array_len;
+            }
 
             value_str = "Array of " + std::to_string(array_len) + "Elements, type " + std::to_string(element_type);
 
@@ -164,7 +194,7 @@ size_t inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
 
         std::cout << "Value: " << value_str << std::endl;
     }
-    return pos;
+    return MetadataResult{pos, config};
 }
 
 size_t inspect_tensors(const MappedFile& mapped, uint64_t tensor_count, size_t start_pos){
