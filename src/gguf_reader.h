@@ -33,6 +33,13 @@ struct ModelConfig {
 struct MetadataResult {
     size_t end_pos;
     ModelConfig config;
+    std::vector<std::string> tokens;
+    std::vector<std::string> merges;
+};
+
+struct Tokenizer {
+    std::vector<std::string> tokens;
+    std::vector<std::string> merges;
 };
 
 MappedFile map_file(const std::string& path) {
@@ -116,6 +123,8 @@ MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_c
     char* bytes = reinterpret_cast<char*>(mapped.data);
     size_t pos = 24;
     ModelConfig config;
+    std::vector<std::string> tokens;
+    std::vector<std::string> merges;
 
     for (uint64_t i = 0; i < metadata_kv_count; i++){
         
@@ -179,6 +188,13 @@ MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_c
                 for (uint64_t j = 0; j < array_len; j++){
                     GgufString element = read_gguf_string(bytes + pos);
                     pos += element.bytes_consumed;
+
+                    if (key.value == "tokenizer.ggml.tokens"){
+                        tokens.push_back(element.value);
+                    }
+                    else if (key.value == "tokenizer.ggml.merges"){
+                        merges.push_back(element.value);
+                    }
                 }
             }
             else if (element_type == 4 || element_type == 6 || element_type == 5){
@@ -194,8 +210,9 @@ MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_c
 
         std::cout << "Value: " << value_str << std::endl;
     }
-    return MetadataResult{pos, config};
+    return MetadataResult{pos, config, tokens, merges};
 }
+
 
 size_t inspect_tensors(const MappedFile& mapped, uint64_t tensor_count, size_t start_pos){
     char * bytes = reinterpret_cast<char*>(mapped.data);

@@ -53,5 +53,14 @@ int main(int argc, char* argv[]){
     std::cout << "vocab_size: " << config.vocab_size << std::endl;
     std::cout << "rope_theta: " << config.rope_theta << std::endl;
 
+    std::vector<std::string> vocab = metadata_result.tokens;
+    std::vector<std::string> merges = metadata_result.merges;
+
+    std::cout << "Vocab size: " << vocab.size() << std::endl;
+    std::cout << "Merges count: " << merges.size() << std::endl;
+    std::cout << "Token 0: " << vocab[0] << std::endl;
+    std::cout << "Token 1000: " << vocab[1000] << std::endl;
+    std::cout << "Merge 0: " << merges[0] << std::endl;
+
     return 0;
 }
