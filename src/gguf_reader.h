@@ -197,7 +197,7 @@ std::string bpe_decode (std::vector<int> ids, std::vector<std::string> vocab_lis
     std::string text = "";
 
     for (int id : ids){
-        text = vocab_list.at(id);
+        text += vocab_list.at(id);
     }
 
     std::string marker = "\xE2\x96\x81"; // UTF-8 bytes for _
@@ -210,6 +210,50 @@ std::string bpe_decode (std::vector<int> ids, std::vector<std::string> vocab_lis
 
 
     return text;
+}
+
+void process_segment(std::string segment, bool is_ascii, std::vector<int>& result_ids,
+                      std::unordered_map<std::string, int>& rank_map,
+                      std::unordered_map<std::string, int>& id_map) {
+
+    if (segment.empty()){
+        return;
+    }
+
+    if (is_ascii){
+        std::vector<int> segment_ids = bpe_encode(segment, rank_map, id_map);
+        for(int id: segment_ids){
+            result_ids.push_back(id);
+        }
+    }
+    else {
+        for (unsigned char b : segment){
+            int fallback_id = 3 + b;
+            result_ids.push_back(fallback_id);
+        }
+    }
+}
+
+std::vector<int> bpe_encode_with_fallback(std::string word, std::unordered_map<std::string, int>& rank_map, std::unordered_map<std::string, int>& id_map){
+    std::vector<int> result_ids;
+    std::string current_segment = "";
+    bool current_segment_is_ascii = true;
+
+    for (unsigned char b: word){
+        bool byte_is_ascii = (b < 128);
+
+        if (byte_is_ascii == current_segment_is_ascii){
+            current_segment += b;
+        }
+        else {
+            process_segment(current_segment, current_segment_is_ascii, result_ids, rank_map, id_map);
+            current_segment = std::string(1, b);
+            current_segment_is_ascii = byte_is_ascii;
+        }
+    }
+    process_segment(current_segment, current_segment_is_ascii, result_ids, rank_map, id_map);
+
+    return result_ids;
 }
 
 MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {

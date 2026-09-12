@@ -78,5 +78,26 @@ int main(int argc, char* argv[]){
     std::string decoded = bpe_decode(ids, vocab);
     std::cout << "Decoded back: " << decoded << std::endl;
 
+    std::vector<int> ids2 = bpe_encode("über", rank_map, id_map);
+    std::cout << "Encoded 'über': ";
+    for (int id : ids2) {
+        std::cout << id << " ";
+    }
+    std::cout << std::endl;
+
+    for (int i = 0; i < vocab.size(); i++) {
+        if (vocab[i].substr(0, 1) == "<" && vocab[i].find("0x") != std::string::npos) {
+            std::cout << "Found byte token at ID " << i << ": " << vocab[i] << std::endl;
+            if (i > 260) break;  // just show the first few, they're likely clustered together
+        }
+    }
+
+    std::vector<int> ids3 = bpe_encode_with_fallback("über", rank_map, id_map);
+    std::cout << "Encoded 'über' with fallback: ";
+    for (int id : ids3) {
+        std::cout << id << " ";
+    }
+    std::cout << std::endl;
+
     return 0;
 }
