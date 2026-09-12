@@ -92,12 +92,16 @@ int main(int argc, char* argv[]){
         }
     }
 
-    std::vector<int> ids3 = bpe_encode_with_fallback("über", rank_map, id_map);
+    std::vector<int> ids3 = bpe_encode("über", rank_map, id_map);
     std::cout << "Encoded 'über' with fallback: ";
     for (int id : ids3) {
         std::cout << id << " ";
     }
     std::cout << std::endl;
+
+    std::cout << "Token 22172 is: " << vocab[22172] << std::endl;
+
+    std::cout << "Token 2939 is: " << vocab[2939] << std::endl;
 
     return 0;
 }

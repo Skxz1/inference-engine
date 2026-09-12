@@ -147,52 +147,6 @@ std::unordered_map<std::string, int> build_vocab_lookup (std::vector<std::string
     return id_map;
 }
 
-std::vector<int> bpe_encode (std::string word, std::unordered_map<std::string, int> rank_map, std::unordered_map<std::string, int> id_map){
-
-    std::vector<std::string> tokens;
-    for (char c : word){
-        tokens.push_back(std::string(1, c));
-    }
-
-    while(true){
-        int best_rank = -1;
-        int best_pair_index = -1;
-
-        // scan will go here
-        for(uint64_t i = 0; i < tokens.size() -1; i++){
-            std::string check = tokens[i] + "\x01" + tokens[i + 1];
-
-            auto it = rank_map.find(check);
-            if (it != rank_map.end()){
-                int rank = it->second;
-                if (best_pair_index == -1 || rank < best_rank){
-                    best_rank = rank;
-                    best_pair_index = i;
-                }
-            }
-        }
-
-
-        if (best_pair_index == -1){
-            break;
-        }
-
-        // merge will go here 
-        std::string merged = tokens[best_pair_index] + tokens[best_pair_index + 1];
-        tokens[best_pair_index] = merged;
-        tokens.erase(tokens.begin() + best_pair_index + 1);
-    }
-
-    // convert final tokens into ID's
-    std::vector<int> result_ids;
-    for (const std::string& piece : tokens){
-        result_ids.push_back(id_map[piece]);
-    }
-
-    return result_ids;
-
-}
-
 std::string bpe_decode (std::vector<int> ids, std::vector<std::string> vocab_list){
     std::string text = "";
 
@@ -212,50 +166,107 @@ std::string bpe_decode (std::vector<int> ids, std::vector<std::string> vocab_lis
     return text;
 }
 
-void process_segment(std::string segment, bool is_ascii, std::vector<int>& result_ids,
-                      std::unordered_map<std::string, int>& rank_map,
-                      std::unordered_map<std::string, int>& id_map) {
+std::vector<std::string> split_into_utf8_characters(const std::string& word) {
+    std::vector<std::string> characters;
+    size_t i = 0;
 
-    if (segment.empty()){
-        return;
+    while (i < word.size()) {
+        unsigned char first_byte = word[i];
+        int char_length;
+
+        if (first_byte < 0x80) {
+            // Highest bit is 0: plain single-byte ASCII character.
+            char_length = 1;
+        } else if ((first_byte & 0xE0) == 0xC0) {
+            // Top 3 bits are 110: this starts a 2-byte sequence.
+            char_length = 2;
+        } else if ((first_byte & 0xF0) == 0xE0) {
+            // Top 4 bits are 1110: this starts a 3-byte sequence.
+            // The space-marker (E2 96 81) falls into this case.
+            char_length = 3;
+        } else if ((first_byte & 0xF8) == 0xF0) {
+            // Top 5 bits are 11110: this starts a 4-byte sequence.
+            // Most emoji fall into this case.
+            char_length = 4;
+        } else {
+            // Not a valid UTF-8 lead byte (shouldn't normally happen
+            // with well-formed input) -- treat as a single raw byte
+            // so we don't get stuck or read out of bounds.
+            char_length = 1;
+        }
+
+        // Don't read past the end of the string if the sequence
+        // looks truncated (malformed/cut-off input).
+        if (i + char_length > word.size()) {
+            char_length = word.size() - i;
+        }
+
+        characters.push_back(word.substr(i, char_length));
+        i += char_length;
     }
 
-    if (is_ascii){
-        std::vector<int> segment_ids = bpe_encode(segment, rank_map, id_map);
-        for(int id: segment_ids){
-            result_ids.push_back(id);
-        }
-    }
-    else {
-        for (unsigned char b : segment){
-            int fallback_id = 3 + b;
-            result_ids.push_back(fallback_id);
-        }
-    }
+    return characters;
 }
 
-std::vector<int> bpe_encode_with_fallback(std::string word, std::unordered_map<std::string, int>& rank_map, std::unordered_map<std::string, int>& id_map){
-    std::vector<int> result_ids;
-    std::string current_segment = "";
-    bool current_segment_is_ascii = true;
 
-    for (unsigned char b: word){
-        bool byte_is_ascii = (b < 128);
+std::vector<int> bpe_encode(std::string word,
+                                 std::unordered_map<std::string, int>& rank_map,
+                                 std::unordered_map<std::string, int>& id_map) {
 
-        if (byte_is_ascii == current_segment_is_ascii){
-            current_segment += b;
+    // Prepend the space-marker, matching real tokenizer behaviour:
+    // standalone input is treated as if it follows a space.
+    std::string marker = "\xE2\x96\x81";
+    word = marker + word;
+
+    // Start with real UTF-8 characters (not raw bytes) as our tokens.
+    std::vector<std::string> tokens = split_into_utf8_characters(word);
+
+    // --- Merge loop: identical to bpe_encode's while loop ---
+    while (true) {
+        int best_rank = -1;
+        int best_pair_index = -1;
+
+        for (uint64_t i = 0; i < tokens.size() - 1; i++) {
+            std::string check = tokens[i] + "\x01" + tokens[i + 1];
+
+            auto it = rank_map.find(check);
+            if (it != rank_map.end()) {
+                int rank = it->second;
+                if (best_pair_index == -1 || rank < best_rank) {
+                    best_rank = rank;
+                    best_pair_index = i;
+                }
+            }
         }
-        else {
-            process_segment(current_segment, current_segment_is_ascii, result_ids, rank_map, id_map);
-            current_segment = std::string(1, b);
-            current_segment_is_ascii = byte_is_ascii;
+
+        if (best_pair_index == -1) {
+            break;
+        }
+
+        std::string merged = tokens[best_pair_index] + tokens[best_pair_index + 1];
+        tokens[best_pair_index] = merged;
+        tokens.erase(tokens.begin() + best_pair_index + 1);
+    }
+
+    // --- Convert final pieces to IDs, falling back per-piece only
+    //     when a piece genuinely isn't in the vocabulary ---
+    std::vector<int> result_ids;
+    for (const std::string& piece : tokens) {
+        auto it = id_map.find(piece);
+        if (it != id_map.end()) {
+            // Piece IS in the vocabulary -- use its real ID.
+            result_ids.push_back(it->second);
+        } else {
+            // Piece is NOT in the vocabulary at all -- genuine
+            // fallback, break it into raw bytes.
+            for (unsigned char b : piece) {
+                result_ids.push_back(3 + b);
+            }
         }
     }
-    process_segment(current_segment, current_segment_is_ascii, result_ids, rank_map, id_map);
 
     return result_ids;
 }
-
 MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     char* bytes = reinterpret_cast<char*>(mapped.data);
     size_t pos = 24;
