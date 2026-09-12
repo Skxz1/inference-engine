@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
+#include <unordered_map>
 
 struct MappedFile {
     void* data;
@@ -117,6 +118,79 @@ GgufString read_gguf_string(const char* bytes) {
     
     // return a GgufString with the string and total bytes consumed (8 + length)
     return GgufString{value, 8 + length};
+}
+
+std::unordered_map<std::string, int> build_merge_ranks (std::vector<std::string> merges_list){
+    // Create an empty hashmap
+    std::unordered_map<std::string, int> rank_map = {};
+
+    // for each value in the merge array find the space replace it with a seperator concatenate string and put in as the key to hashmap
+    // code is a bit more verbose, could be better but now like this for simplicity
+    for (uint64_t i = 0; i < merges_list.size(); i++){
+        size_t space_pos = merges_list[i].find(' ');
+        std::string left = merges_list[i].substr(0, space_pos);
+        std::string right = merges_list[i].substr(space_pos + 1);
+        std::string combined_key = left + "\x01" + right;
+
+        rank_map[combined_key] = i;
+    }
+    return rank_map;    
+}
+
+// map vocab to an ID with faster lookup then going through a whole array
+std::unordered_map<std::string, int> build_vocab_lookup (std::vector<std::string> vocab_list){
+    std::unordered_map<std::string, int> id_map = {};
+
+    for (uint64_t i = 0; i < vocab_list.size(); i++){
+        id_map[vocab_list[i]] = i;
+    }
+    return id_map;
+}
+
+std::vector<int> bpe_encode (std::string word, std::unordered_map<std::string, int> rank_map, std::unordered_map<std::string, int> id_map){
+
+    std::vector<std::string> tokens;
+    for (char c : word){
+        tokens.push_back(std::string(1, c));
+    }
+
+    while(true){
+        int best_rank = -1;
+        int best_pair_index = -1;
+
+        // scan will go here
+        for(uint64_t i = 0; i < tokens.size() -1; i++){
+            std::string check = tokens[i] + "\x01" + tokens[i + 1];
+
+            auto it = rank_map.find(check);
+            if (it != rank_map.end()){
+                int rank = it->second;
+                if (best_pair_index == -1 || rank < best_rank){
+                    best_rank = rank;
+                    best_pair_index = i;
+                }
+            }
+        }
+
+
+        if (best_pair_index == -1){
+            break;
+        }
+
+        // merge will go here 
+        std::string merged = tokens[best_pair_index] + tokens[best_pair_index + 1];
+        tokens[best_pair_index] = merged;
+        tokens.erase(tokens.begin() + best_pair_index + 1);
+    }
+
+    // convert final tokens into ID's
+    std::vector<int> result_ids;
+    for (const std::string& piece : tokens){
+        result_ids.push_back(id_map[piece]);
+    }
+
+    return result_ids;
+
 }
 
 MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {

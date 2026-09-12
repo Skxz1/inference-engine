@@ -62,5 +62,18 @@ int main(int argc, char* argv[]){
     std::cout << "Token 1000: " << vocab[1000] << std::endl;
     std::cout << "Merge 0: " << merges[0] << std::endl;
 
+
+    auto rank_map = build_merge_ranks(merges);
+    auto id_map = build_vocab_lookup(vocab);
+
+    std::vector<int> ids = bpe_encode("hello", rank_map, id_map);
+
+    std::cout << "Encoded 'hello': ";
+    for (int id : ids) {
+        std::cout << id << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "Token 12199 is: " << vocab[12199] << std::endl;
+
     return 0;
 }
