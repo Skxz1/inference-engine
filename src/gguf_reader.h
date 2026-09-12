@@ -193,6 +193,25 @@ std::vector<int> bpe_encode (std::string word, std::unordered_map<std::string, i
 
 }
 
+std::string bpe_decode (std::vector<int> ids, std::vector<std::string> vocab_list){
+    std::string text = "";
+
+    for (int id : ids){
+        text = vocab_list.at(id);
+    }
+
+    std::string marker = "\xE2\x96\x81"; // UTF-8 bytes for _
+
+    size_t pos = text.find(marker);
+    while (pos != std::string::npos){
+        text.replace(pos, marker.size(), " ");
+        pos = text.find(marker, pos + 1);
+    }
+
+
+    return text;
+}
+
 MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     char* bytes = reinterpret_cast<char*>(mapped.data);
     size_t pos = 24;

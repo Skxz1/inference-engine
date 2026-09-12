@@ -75,5 +75,8 @@ int main(int argc, char* argv[]){
     std::cout << std::endl;
     std::cout << "Token 12199 is: " << vocab[12199] << std::endl;
 
+    std::string decoded = bpe_decode(ids, vocab);
+    std::cout << "Decoded back: " << decoded << std::endl;
+
     return 0;
 }
