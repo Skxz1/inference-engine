@@ -482,6 +482,10 @@ std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, u
         uint64_t elements_to_skip = row_index * row_size;
         uint64_t blocks_to_skip = elements_to_skip / 32;
         offset += blocks_to_skip * 34;
+        std::cerr << "DEBUG: elements_to_skip=" << elements_to_skip
+                   << " blocks_to_skip=" << blocks_to_skip
+                   << " bytes_added=" << (blocks_to_skip * 34)
+                   << " final offset=" << offset << std::endl;
         }
     }
     if (type == 0){
@@ -512,7 +516,6 @@ std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, u
             float scale = f16_to_f32(raw_scale);
             pos += 2;
 
-            // next: read 32 int8 values, multiply by scale, push_back
             for(uint64_t j = 0; j < 32; j++){
                 int8_t quantized;
                 std::memcpy(&quantized, bytes + pos, 1);

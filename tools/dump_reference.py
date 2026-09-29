@@ -155,6 +155,18 @@ for i, tensor in rmsnorm_outputs.items():
 # has something to compare against without re-reading the GGUF file.
 save("layer_0_attn_norm_weight", model.model.layers[0].input_layernorm.weight)
 
+# The raw embedding table's row 0 directly, independent of the prompt or
+# sequence position. Used to test embedding lookup with no row-skipping
+# involved at all, isolating whether a row-offset bug or the underlying
+# Q8_0 dequantization itself is the source of a mismatch.
+save("embed_token_0", model.model.embed_tokens.weight[0])
+
+# Row 450, a normal, common word token ("The"), not a special/near-zero
+# token like BOS or UNK. Used to check whether earlier mismatches were
+# just Q8_0 quantization error concentrated on degenerate small-valued
+# special tokens, rather than a real bug in the C++ dequantization.
+save("embed_token_450", model.model.embed_tokens.weight[450])
+
 # Final logits: unnormalised scores over the vocabulary for the next token,
 # at every position in the sequence, before any sampling is applied.
 save("logits", outputs.logits)
