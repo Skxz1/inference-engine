@@ -210,18 +210,62 @@ std::vector<std::string> split_into_utf8_characters(const std::string& word) {
 
 
 std::vector<int> bpe_encode(std::string word,
-                                 std::unordered_map<std::string, int>& rank_map,
-                                 std::unordered_map<std::string, int>& id_map) {
+                             std::unordered_map<std::string, int>& rank_map,
+                             std::unordered_map<std::string, int>& id_map) {
 
-    // Prepend the space-marker, matching real tokenizer behaviour:
-    // standalone input is treated as if it follows a space.
+    // Needed to tell "genuinely empty input" apart from "input that
+    // was only whitespace" once we've stripped it down below.
+    bool original_was_nonempty = !word.empty();
+
+    // Strip leading/trailing spaces (SentencePiece's remove_extra_whitespaces)
+    size_t start = word.find_first_not_of(' ');
+    size_t end = word.find_last_not_of(' ');
+    if (start == std::string::npos) {
+        word = "";
+    } else {
+        word = word.substr(start, end - start + 1);
+    }
+
+    // Collapse any run of spaces down to a single space
+    std::string collapsed;
+    bool last_was_space = false;
+    for (char c : word) {
+        if (c == ' ') {
+            if (!last_was_space) {
+                collapsed += ' ';
+            }
+            last_was_space = true;
+        } else {
+            collapsed += c;
+            last_was_space = false;
+        }
+    }
+    word = collapsed;
+
+    if (word.empty()) {
+        if (original_was_nonempty) {
+            return {29871};  // all-whitespace input gets its own token
+        } else {
+            return {};
+        }
+    }
+
     std::string marker = "\xE2\x96\x81";
-    word = marker + word;
 
-    // Start with real UTF-8 characters (not raw bytes) as our tokens.
+    // Every space becomes the marker; the leading one is prepended
+    // separately since text is treated as if preceded by a space.
+    std::string normalized;
+    for (char c : word) {
+        if (c == ' ') {
+            normalized += marker;
+        } else {
+            normalized += c;
+        }
+    }
+    word = marker + normalized;
+
     std::vector<std::string> tokens = split_into_utf8_characters(word);
 
-    // --- Merge loop: identical to bpe_encode's while loop ---
     while (true) {
         int best_rank = -1;
         int best_pair_index = -1;
@@ -248,17 +292,13 @@ std::vector<int> bpe_encode(std::string word,
         tokens.erase(tokens.begin() + best_pair_index + 1);
     }
 
-    // --- Convert final pieces to IDs, falling back per-piece only
-    //     when a piece genuinely isn't in the vocabulary ---
     std::vector<int> result_ids;
     for (const std::string& piece : tokens) {
         auto it = id_map.find(piece);
         if (it != id_map.end()) {
-            // Piece IS in the vocabulary -- use its real ID.
             result_ids.push_back(it->second);
         } else {
-            // Piece is NOT in the vocabulary at all -- genuine
-            // fallback, break it into raw bytes.
+            // Piece has no vocabulary entry -- fall back to raw bytes
             for (unsigned char b : piece) {
                 result_ids.push_back(3 + b);
             }
@@ -267,6 +307,7 @@ std::vector<int> bpe_encode(std::string word,
 
     return result_ids;
 }
+
 MetadataResult inspect_metadata(const MappedFile& mapped, uint64_t metadata_kv_count) {
     char* bytes = reinterpret_cast<char*>(mapped.data);
     size_t pos = 24;
@@ -431,7 +472,18 @@ float f16_to_f32(uint16_t raw){
     return result;
 }
 
-std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, uint32_t type, uint64_t num_elements){
+std::vector<float> read_tensor_data(const MappedFile& mapped, uint64_t offset, uint32_t type, uint64_t num_elements, uint64_t row_index = 0, uint64_t row_size = 0) {
+    if (row_index > 0) {
+    if (type == 0) {
+        offset += row_index * row_size * sizeof(float);
+    } else if (type == 1) {
+        offset += row_index * row_size * 2;
+    } else if (type == 8) {
+        uint64_t elements_to_skip = row_index * row_size;
+        uint64_t blocks_to_skip = elements_to_skip / 32;
+        offset += blocks_to_skip * 34;
+        }
+    }
     if (type == 0){
         char* bytes = reinterpret_cast<char*>(mapped.data);
         std::vector<float> result(num_elements);
